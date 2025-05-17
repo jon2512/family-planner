@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Family Weekly Planner</title>
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --mon: #b2dfdb;
+      --tue: #c5e1a5;
+      --wed: #ffcc80;
+      --thu: #81d4fa;
+      --fri: #ce93d8;
+      --sat: #f48fb1;
+      --sun: #bcaaa4;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Patrick Hand', cursive;
+      font-size: 100%;
+      width: 100%;
+      height: 100%;
+      overflow-x: auto;
+      background: #fdfbfb url('https://www.transparenttextures.com/patterns/subtle-white-feathers.png') repeat;
+    }
+
+    h1 {
+      text-align: center;
+      margin: 1rem 0 0.25rem;
+      font-size: 2rem;
+      color: #444;
+    }
+
+    #toggle-recurring {
+      margin-left: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .week-nav {
+      display: flex;
+      justify-content: center;
+      gap: 0.25rem;
+    }
+    .week-nav button {
+      background: #e0e0e0;
+      border: none;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+
+    #recurring-setup {
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 1rem;
+      margin: 0 1rem 1rem 1rem;
+      border-radius: 6px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    #recurring-setup.collapsed {
+      display: none;
+    }
+
+    #recurring-setup h2 {
+      margin-top: 0;
+      font-size: 1.25rem;
+      color: #444;
+      margin-bottom: 0.75rem;
+    }
+
+    #recurring-setup label {
+      display: block;
+      margin-bottom: 0.25rem;
+      font-weight: bold;
+      color: #333;
+    }
+
+    #recurring-setup select,
+    #recurring-setup input[type="text"] {
+      width: 100%;
+      padding: 0.4rem 0.5rem;
+      margin-bottom: 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+
+    #recurring-setup .days-checkboxes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    #recurring-setup .days-checkboxes label {
+      font-weight: normal;
+      color: #555;
+      cursor: pointer;
+    }
+
+    #recurring-setup button {
+      background: #ce93d8;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    #recurring-setup button:hover {
+      background: #b676c8;
+    }
+
+    .header-row {
+      display: grid;
+      grid-template-columns: 187px 1fr 1fr 1fr 1fr;
+      background: #ccc;
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 0 1rem 0.5rem 1rem;
+    }
+
+    .header-row > div {
+      padding: 1rem 0.5rem;
+      text-align: center;
+      font-weight: bold;
+      font-size: 1.1rem;
+      color: white;
+    }
+
+    .col-dinner { background: #f48fb1; }
+    .col-parents { background: #4dd0e1; }
+    .col-lia { background: #81c784; }
+    .col-ani { background: #9575cd; }
+
+    .planner-row {
+      display: flex;
+      align-items: stretch;
+      margin: 0 1rem 6px 1rem;
+    }
+
+    .ribbon-label {
+      width: 187px;
+      min-width: 187px;
+      height: 40px;
+      color: white;
+      padding: 0.5rem 1rem;
+      font-weight: bold;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 50%, calc(100% - 15px) 100%, 0 100%);
+      border-radius: 6px 0 0 6px;
+      margin-right: 4px;
+      position: relative;
+      overflow: visible;
+    }
+
+    .ribbon-label input {
+      width: 36px;
+      height: 36px;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      margin-left: 0.5rem;
+      margin-top: 2px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      font-size: 1rem;
+    }
+
+    .ribbon-label span {
+      text-transform: uppercase;
+    }
+
+    .mon { background: var(--mon); }
+    .tue { background: var(--tue); }
+    .wed { background: var(--wed); }
+    .thu { background: var(--thu); }
+    .fri { background: var(--fri); }
+    .sat { background: var(--sat); }
+    .sun { background: var(--sun); }
+
+    .planner-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 6px;
+      height: 100px;
+    }
+
+    .editable-cell {
+      height: 100%;
+      border: 1px solid #ddd;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+      border-radius: 6px;
+    }
+
+    /* School Meal row display */
+    .schoolmeal-row {
+      margin: 0 1rem 1rem;
+      padding: 0.5rem 1rem;
+      background: #fff3e0;
+      border-left: 5px solid #ffb74d;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      display: none;
+      border-radius: 6px;
+    }
+
+    body.show-school-meals .schoolmeal-row {
+      display: block;
+    }
+    .editable-cell.dinner { background: #fce4ec; }
+    .editable-cell.parents { background: #e0f7fa; }
+    .editable-cell.Lia { background: #e8f5e9; }
+    .editable-cell.ani { background: #ede7f6; }
+
+    .editable {
+      width: 100%;
+      height: 100%;
+      border: none;
+      resize: none;
+      /* Slight negative padding-top to align text with dotted background lines */
+      padding: 0.35rem 0.5rem 0.5rem 0.5rem;
+      font-size: 1.1rem;
+      font-family: inherit;
+      background: transparent;
+      box-sizing: border-box;
+      background-image: repeating-linear-gradient(to bottom, transparent 0px, transparent 23px, #ccc 23px, #ccc 24px);
+      line-height: 24px;
+    }
+
+    .editable:focus {
+      outline: 2px solid #ce93d8;
+      background: #fff8e1;
+    }
+
+    .footer-section {
+      display: flex;
+      gap: 1rem;
+      margin: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .footer-box {
+      flex: 1;
+      min-width: 250px;
+      background: linear-gradient(to bottom right, #fffde7, #fff9c4);
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    .footer-box h3 {
+      margin-top: 0;
+      font-size: 1rem;
+      color: #444;
+    }
+
+    .footer-box .editable {
+      min-height: 120px;
+    }
+
+    .planner-row.current-day {
+      /* box-shadow: inset 0 0 0 3px #ffe082; */
+      /* border-radius: 8px; */
+    }
+
+    @keyframes bounce-left-right {
+      0%, 100% {
+        transform: translateX(0);
+      }
+      50% {
+        transform: translateX(4px);
+      }
+    }
+
+    .planner-row.current-day .ribbon-label {
+      animation: bounce-left-right 1s infinite ease-in-out;
+      filter: brightness(0.9);
+    }
+  </style>
+</head>
+<body>
+  
+  <button id="toggle-recurring" type="button">Recurring Events</button>
+  <button id="toggle-school-meals-inline" type="button">Toggle School Meals</button>
+
+
+
+  <div id="recurring-container">
+    <div id="recurring-setup" class="collapsed">
+      <h2>Set Recurring Event</h2>
+      <label for="recurring-person">Person</label>
+      <select id="recurring-person">
+        <option value="dinner">Dinner</option>
+        <option value="parents">Mam & Dad</option>
+        <option value="lia">Lia</option>
+        <option value="ani">Ani</option>
+      </select>
+
+      <label>Day(s) of the Week</label>
+      <div class="days-checkboxes">
+        <label><input type="checkbox" value="0" /> Monday</label>
+        <label><input type="checkbox" value="1" /> Tuesday</label>
+        <label><input type="checkbox" value="2" /> Wednesday</label>
+        <label><input type="checkbox" value="3" /> Thursday</label>
+        <label><input type="checkbox" value="4" /> Friday</label>
+        <label><input type="checkbox" value="5" /> Saturday</label>
+        <label><input type="checkbox" value="6" /> Sunday</label>
+      </div>
+
+      <label for="recurring-text">Event Text</label>
+      <input type="text" id="recurring-text" placeholder="Enter recurring event text" />
+
+      <button id="save-recurring">Save Recurring Event</button>
+    </div>
+  </div>
+
+  <div class="header-row">
+    <div>
+      <div class="week-nav">
+        <button onclick="changeWeek(-1)">←</button>
+        <button onclick="changeWeek(0)">◼</button>
+        <button onclick="changeWeek(1)">→</button>
+      </div>
+    </div>
+    <div class="col-dinner">Dinner</div>
+    <div class="col-parents">Mam & Dad</div>
+    <div class="col-lia">Lia</div>
+    <div class="col-ani">Ani</div>
+  </div>
+
+  <div id="planner-rows"></div>
+
+  <div class="footer-section">
+    <div class="footer-box">
+      <h3>Don't Forget</h3>
+      <textarea class="editable" data-footer="forget" id="ha-todo"></textarea>
+    </div>
+    <div class="footer-box">
+      <h3>Must Do's</h3>
+      <textarea class="editable" data-footer="must"></textarea>
+    </div>
+    <div class="footer-box">
+      <h3>Next Week</h3>
+      <textarea class="editable" data-footer="next"></textarea>
+    </div>
+  </div>
+
+  <script>
+    const days = [
+      { name: 'Monday', class: 'mon' },
+      { name: 'Tuesday', class: 'tue' },
+      { name: 'Wednesday', class: 'wed' },
+      { name: 'Thursday', class: 'thu' },
+      { name: 'Friday', class: 'fri' },
+      { name: 'Saturday', class: 'sat' },
+      { name: 'Sunday', class: 'sun' }
+    ];
+    const people = ['dinner', 'parents', 'lia', 'ani'];
+
+    let currentOffset = 0;
+
+    function startOfWeek(date) {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = d.getDate() - ((day + 6) % 7);
+      return new Date(d.setDate(diff));
+    }
+
+    function changeWeek(offset) {
+      if (offset === 0) currentOffset = 0;
+      else currentOffset += offset;
+      renderPlanner();
+    }
+
+    function saveEntry(week, dayIndex, person, value) {
+      const key = `planner-week_${week}-day_${dayIndex}-person_${person}`;
+      localStorage.setItem(key, value);
+    }
+
+    function loadEntry(week, dayIndex, person) {
+      const key = `planner-week_${week}-day_${dayIndex}-person_${person}`;
+      return localStorage.getItem(key) || '';
+    }
+
+    function loadRecurringEvents() {
+      const data = localStorage.getItem('planner-recurring-events');
+      return data ? JSON.parse(data) : [];
+    }
+
+    function saveRecurringEvents(events) {
+      localStorage.setItem('planner-recurring-events', JSON.stringify(events));
+    }
+
+    // --- School Meals Menu Data and Helpers ---
+    const menuData = {
+      "week1": [
+        {
+          option1: "Home Baked Cheese and Tomato Pizza",
+          option2: "Sausage and Bean Filled Jacket Potato",
+          sides: "Pasta Twists, Sweetcorn",
+          dessert: "Chocolate and Banana Flapjack & Milk"
+        },
+        {
+          option1: "Crispy Chicken Goujons with a Tortilla Wrap",
+          option2: "Vegetable Noodles & Naan Bread (V)",
+          sides: "Seasoned Wedges, Baked Beans, Vegetable Batons",
+          dessert: "Apple and Cinnamon Sponge Cake and Caramel Sauce"
+        },
+        {
+          option1: "Welsh Beef Lasagne with Garlic Bread",
+          option2: "Welsh Rarebit (V)",
+          sides: "Baked Beans, Peas, Coleslaw",
+          dessert: "Llaeth y Llan Yoghurt with Apple or Banana or Melon"
+        },
+        {
+          option1: "Roast Chicken with Gravy",
+          option2: "Macaroni Cheese (V)",
+          sides: "Carrots and Broccoli, Creamed Potatoes",
+          dessert: "Lemon Cheesecake, Bara Brith, Milk"
+        },
+        {
+          option1: "Breaded Salmon Fillet",
+          option2: "Cheese Omelette (V)",
+          sides: "Chips, Baked Beans or Peas",
+          dessert: "Golden Krispie Bar, Fruit Juice"
+        }
+      ],
+      "week2": [
+        {
+          option1: "Home Baked Cheese and Tomato Pizza",
+          option2: "Chilli Beef Filled Jacket Potato",
+          sides: "Sweetcorn, Mixed Salad, Pasta Twists",
+          dessert: "Rice Pudding with Cranberries"
+        },
+        {
+          option1: "Chicken Curry with Rice & Naan Bread",
+          option2: "Baked Bean Pasta Bake (V)",
+          sides: "Broccoli, Vegetable Batons",
+          dessert: "Blueberry Muffin, Milk"
+        },
+        {
+          option1: "Welsh Beef Burger in a Bap",
+          option2: "Welsh Cheddar and Potato Wrap (V)",
+          sides: "Seasoned Potato Wedges, Baked Beans, Coleslaw",
+          dessert: "Llaeth y Llan Yoghurt with Fruit or Melon"
+        },
+        {
+          option1: "Oven Baked Sausages with Yorkshire Puddings and Gravy",
+          option2: "Macaroni Cheese (V)",
+          sides: "Creamed Potatoes, Carrots and Broccoli",
+          dessert: "Ice Cream Roll with Raspberries or Crackers, Cheese and Grapes, Milk"
+        },
+        {
+          option1: "Breaded Salmon Fillet",
+          option2: "Cheese & Tomato Omelette (V)",
+          sides: "Chips, Baked Beans or Peas",
+          dessert: "Lemon Cookie, Fruit Juice"
+        }
+      ],
+      "week3": [
+        {
+          option1: "Home Baked Cheese and Tomato Pizza",
+          option2: "Tuna Crunch Filled Potato",
+          sides: "Pasta Twists, Corn on the Cob",
+          dessert: "Date Cookie & Milk"
+        },
+        {
+          option1: "Crispy Chicken Goujons with a Tortilla Wrap",
+          option2: "Tex Mex Burrito (V)",
+          sides: "Seasoned Wedges, Baked Beans, Vegetable Batons",
+          dessert: "Lemon Cake with Vanilla Sauce"
+        },
+        {
+          option1: "Welsh Beef Bolognaise & Garlic Bread",
+          option2: "Glamorgan Sausage (V)",
+          sides: "Peas, Pasta, Baked Beans, Coleslaw",
+          dessert: "Yoghurt with Fruit or Melon"
+        },
+        {
+          option1: "Roast Gammon and Gravy",
+          option2: "Macaroni Cheese (V)",
+          sides: "Creamed Potatoes, Carrots and Broccoli",
+          dessert: "Pancakes with Mixed Berries"
+        },
+        {
+          option1: "Breaded Salmon Fillet",
+          option2: "Scrambled Egg (V)",
+          sides: "Chips, Baked Beans or Peas",
+          dessert: "Bara Brith, Milk or Caramel Cornflake Crunch, Juice"
+        }
+      ],
+      "week4": [
+        {
+          option1: "Home Baked Cheese and Tomato Pizza",
+          option2: "Ham & Cheese Filled Potato",
+          sides: "Pasta Twists, Corn on the Cob",
+          dessert: "Rice Pudding with Raspberry Puree"
+        },
+        {
+          option1: "Oven Baked Sausages",
+          option2: "Hot Vegetable Wraps (V)",
+          sides: "Creamed Potatoes, Beans, Vegetable Batons",
+          dessert: "Sticky Toffee Pudding, Milk"
+        },
+        {
+          option1: "Meatballs in Mediterranean Sauce & Garlic Bread",
+          option2: "Potato and Leek Bake (V)",
+          sides: "Pasta Twists, Peas, Coleslaw",
+          dessert: "Yoghurt with Apple, Banana or Melon"
+        },
+        {
+          option1: "Roast Pork with Stuffing, Apple Sauce and Gravy",
+          option2: "Macaroni Cheese (V)",
+          sides: "Carrot & Swede Mash, Roast Potatoes, Broccoli",
+          dessert: "Chocolate Pudding with Bananas or Crackers, Cheese and Grapes, Milk"
+        },
+        {
+          option1: "Breaded Salmon Fillet",
+          option2: "Poached Egg (V)",
+          sides: "Chips, Baked Beans or Peas",
+          dessert: "Golden Crunch Cookie, Fruit Juice"
+        }
+      ]
+    };
+
+    function getMenuForDate(date) {
+      const weekMap = {
+        "2025-04-28": "week1", "2025-05-05": "week2", "2025-05-12": "week3", "2025-05-19": "week4",
+        "2025-06-02": "week1", "2025-06-09": "week2", "2025-06-16": "week3", "2025-06-23": "week4",
+        "2025-06-30": "week1", "2025-07-07": "week2", "2025-07-14": "week3"
+      };
+      const monday = startOfWeek(date);
+      const mondayISO = monday.toISOString().split("T")[0];
+      return weekMap[mondayISO] || null;
+    }
+
+    // --- Lia's School Calendar Events ---
+    const liaCalendar = {
+      "2024-09-04": "📚 Return to School",
+      "2024-10-07": "🏊 Swimming Block (Years 4–6)",
+      "2024-10-08": "🏊 Swimming Block (Years 4–6)",
+      "2024-10-14": "🏫 Teacher Training – School Closed",
+      "2024-10-25": "🎉 Last Day of Term",
+      "2024-11-04": "📚 Pupils Return to School",
+      "2024-12-20": "🎄 Last Day of Term",
+      "2025-01-07": "📚 Pupils Return to School",
+      "2025-02-11": "🌐 Safer Internet Day",
+      "2025-02-21": "🎉 Last Day of Half Term",
+      "2025-03-11": "🦷 Dentist Survey Year 1",
+      "2025-04-25": "🎉 End of Half Term Break",
+      "2025-05-05": "🏖️ Bank Holiday",
+      "2025-05-14": "📸 Tempest Class Photos",
+      "2025-05-26": "🏖️ Half Term Week",
+      "2025-06-17": "🏃‍♀️ Sports Day",
+      "2025-06-24": "🎪 Summer Fair",
+      "2025-07-08": "📚 Taster Day – Move Up Year",
+      "2025-07-10": "🌳 Crocky Trail Trip",
+      "2025-07-19": "🎉 Last Day of Term"
+    };
+
+    function renderPlanner() {
+      const baseDate = new Date();
+      const monday = startOfWeek(baseDate);
+      const today = new Date();
+      const todayIndex = (today.getDay() + 6) % 7;
+      const isCurrentWeek = currentOffset === 0;
+      monday.setDate(monday.getDate() + currentOffset * 7);
+
+      const recurringEvents = loadRecurringEvents();
+
+      const container = document.getElementById('planner-rows');
+      container.innerHTML = '';
+
+      days.forEach((day, i) => {
+        const date = new Date(monday);
+        date.setDate(date.getDate() + i);
+        const dateNum = date.getDate();
+        const row = document.createElement('div');
+        row.className = 'planner-row';
+        if (isCurrentWeek && i === todayIndex) {
+          row.classList.add('current-day');
+        }
+
+        // School meal week key
+        const weekKey = getMenuForDate(monday);
+        // Remove schoolmealHTML and do not inject into ribbon-label
+        let labelHTML = `
+          <div class="ribbon-label ${day.class}">
+            <span>${day.name}</span>
+            <input value="${dateNum}" />
+          </div>
+        `;
+
+        // Create the planner-grid as a DOM element
+        const grid = document.createElement('div');
+        grid.className = 'planner-grid';
+        people.forEach(person => {
+          let value = loadEntry(currentOffset, i, person);
+          // Check recurring events for this person and day
+          const recurring = recurringEvents.find(ev => ev.person === person && ev.days.includes(i));
+          if (recurring) {
+            const marker = '🔁 ' + recurring.text.trim();
+            const lines = value.split('\n').map(l => l.trim());
+            if (!lines.includes(marker)) {
+              lines.unshift(marker);
+              value = lines.join('\n');
+            }
+          }
+          // Append Lia's school calendar events if applicable
+          if (person === 'lia') {
+            const isoDate = date.toISOString().split("T")[0];
+            if (liaCalendar[isoDate]) {
+              value += (value ? '\n' : '') + liaCalendar[isoDate];
+            }
+          }
+          const cell = document.createElement('div');
+          cell.className = `editable-cell ${person}`;
+
+          const textarea = document.createElement('textarea');
+          textarea.className = 'editable';
+          textarea.dataset.week = currentOffset;
+          textarea.dataset.day = i;
+          textarea.dataset.person = person;
+          textarea.value = value;
+
+          textarea.addEventListener('input', e => {
+            const el = e.target;
+            saveEntry(el.dataset.week, el.dataset.day, el.dataset.person, el.value);
+          });
+
+          cell.appendChild(textarea);
+          grid.appendChild(cell);
+        });
+        // Set labelHTML via innerHTML, then append grid
+        row.innerHTML = labelHTML;
+        row.appendChild(grid);
+        container.appendChild(row);
+        // After container.appendChild(row), add schoolmeal-row if menu data exists
+        if (weekKey && menuData[weekKey] && menuData[weekKey][i]) {
+          const meal = menuData[weekKey][i];
+          const schoolMealRow = document.createElement('div');
+          schoolMealRow.className = 'schoolmeal-row';
+          schoolMealRow.innerHTML = `
+            🍽️ <strong>Option 1:</strong> ${meal.option1}<br>
+            🥗 <strong>Option 2:</strong> ${meal.option2}<br>
+            🍟 <strong>Sides:</strong> ${meal.sides}<br>
+            🍰 <strong>Dessert:</strong> ${meal.dessert}
+          `;
+          container.appendChild(schoolMealRow);
+        }
+      });
+    }
+
+    document.getElementById('save-recurring').addEventListener('click', () => {
+      const person = document.getElementById('recurring-person').value;
+      const text = document.getElementById('recurring-text').value.trim();
+      const dayCheckboxes = document.querySelectorAll('#recurring-setup .days-checkboxes input[type="checkbox"]');
+      const selectedDays = [];
+      dayCheckboxes.forEach(cb => {
+        if (cb.checked) selectedDays.push(parseInt(cb.value));
+      });
+
+      if (!person) {
+        alert('Please select a person.');
+        return;
+      }
+      if (selectedDays.length === 0) {
+        alert('Please select at least one day.');
+        return;
+      }
+      if (!text) {
+        alert('Please enter event text.');
+        return;
+      }
+
+      let recurringEvents = loadRecurringEvents();
+
+      // Remove any existing recurring events for this person on the selected days
+      recurringEvents = recurringEvents.filter(ev => {
+        if (ev.person !== person) return true;
+        // Remove days from ev.days that are in selectedDays
+        ev.days = ev.days.filter(d => !selectedDays.includes(d));
+        // Keep event only if it still has days
+        return ev.days.length > 0;
+      });
+
+      // Add new recurring event
+      recurringEvents.push({
+        person: person,
+        days: selectedDays,
+        text: text
+      });
+
+      saveRecurringEvents(recurringEvents);
+
+      // Clear inputs
+      document.getElementById('recurring-text').value = '';
+      dayCheckboxes.forEach(cb => cb.checked = false);
+
+      renderPlanner();
+      alert('Recurring event saved.');
+    });
+
+    // Toggle recurring setup visibility
+    document.getElementById('toggle-recurring').addEventListener('click', function() {
+      var recurringDiv = document.getElementById('recurring-setup');
+      recurringDiv.classList.toggle('collapsed');
+    });
+
+    document.getElementById('toggle-school-meals-inline').addEventListener('click', () => {
+      document.body.classList.toggle('show-school-meals');
+    });
+
+    renderPlanner();
+
+    // --- Home Assistant Todo Integration ---
+    const haToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjY2YzNDVhYTdlMjY0YTY5ODc1NTNjZjhmNmJhMjliZCIsImlhdCI6MTc0NzQ2MzA4OSwiZXhwIjoyMDYyODIzMDg5fQ.di1R-9EQ-BDuMO8SaAB0sPavzBDDidhynVNw2ot431E';
+    const haUrl = 'https://q5cf0t1qt8bqriz9gzvwkzcccu8ha6sj.ui.nabu.casa'; // update if needed
+
+    async function fetchTodoList() {
+      const response = await fetch(`${haUrl}/api/todo`, {
+        headers: {
+          'Authorization': `Bearer ${haToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const todos = await response.json();
+      const forgetBox = document.getElementById('ha-todo');
+      if (Array.isArray(todos)) {
+        forgetBox.value = todos.map(item => `${item.completed ? '✅' : '📝'} ${item.summary}`).join('\n');
+      }
+    }
+
+    async function syncTodoToHA(text) {
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      const response = await fetch(`${haUrl}/api/todo`, {
+        headers: {
+          'Authorization': `Bearer ${haToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const existing = await response.json();
+      const existingTitles = new Set(existing.map(item => item.summary));
+      const newItems = lines.map(l => l.replace(/^✅|📝/, '').trim()).filter(title => !existingTitles.has(title));
+
+      for (const summary of newItems) {
+        await fetch(`${haUrl}/api/services/todo/add_item`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${haToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            entity_id: 'todo.shopping_list',
+            item: { summary }
+          })
+        });
+      }
+    }
+
+    fetchTodoList();
+
+    let todoSyncTimeout;
+    document.getElementById('ha-todo').addEventListener('input', (e) => {
+      clearTimeout(todoSyncTimeout);
+      todoSyncTimeout = setTimeout(() => {
+        syncTodoToHA(e.target.value);
+      }, 1500);
+    });
+  </script>
+</body>
+</html>
