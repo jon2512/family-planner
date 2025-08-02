@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Family Weekly Planner</title>
+  <script src="https://cdn.jsdelivr.net/npm/ical-expander@1.3.4/dist/ical-expander.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -352,10 +353,16 @@
 
   <div id="planner-rows"></div>
 
+  <div style="margin: 1rem;">
+    <form id="add-todo-form" style="display: flex; gap: 0.5rem;">
+      <input type="text" id="new-todo" placeholder="Add a task..." style="flex: 1; padding: 0.5rem;" />
+      <button type="submit">Add</button>
+    </form>
+  </div>
   <div class="footer-section">
     <div class="footer-box">
       <h3>Don't Forget</h3>
-      <textarea class="editable" data-footer="forget" id="ha-todo"></textarea>
+      <ul id="todo-list"></ul>
     </div>
     <div class="footer-box">
       <h3>Must Do's</h3>
@@ -378,6 +385,30 @@
       { name: 'Sunday', class: 'sun' }
     ];
     const people = ['dinner', 'parents', 'lia', 'ani'];
+
+    // --- iCal integration ---
+    const iCalUrl = 'https://calendar.google.com/calendar/ical/family16157179742851701729%40group.calendar.google.com/private-af7af5a3a3331285256a2abf0846826a/basic.ics';
+    let iCalEvents = [];
+
+    async function fetchICalEvents() {
+      try {
+        const res = await fetch(iCalUrl);
+        const icsText = await res.text();
+        // ical-expander expects ics, not parser object
+        const expander = new ICAL.Expander({ ics: icsText, maxIterations: 100 });
+        const now = new Date();
+        const end = new Date(now);
+        end.setDate(end.getDate() + 30); // look 30 days ahead
+        const expanded = expander.between(now, end);
+        iCalEvents = expanded.events.map(ev => ({
+          summary: ev.summary,
+          start: ev.startDate.toJSDate(),
+        }));
+        console.log(iCalEvents);
+      } catch (e) {
+        console.error('Failed to fetch or parse iCal', e);
+      }
+    }
 
     let currentOffset = 0;
 
@@ -597,6 +628,13 @@
         const date = new Date(monday);
         date.setDate(date.getDate() + i);
         const dateNum = date.getDate();
+
+        // --- iCal: Filter events for this day
+        const isoDate = date.toISOString().split("T")[0];
+        const dayEvents = iCalEvents.filter(ev =>
+          ev.start.toISOString().split("T")[0] === isoDate
+        );
+
         const row = document.createElement('div');
         row.className = 'planner-row';
         if (isCurrentWeek && i === todayIndex) {
@@ -634,6 +672,12 @@
             if (liaCalendar[isoDate]) {
               value += (value ? '\n' : '') + liaCalendar[isoDate];
             }
+          }
+          // Append iCal events to 'parents' column
+          if (person === 'parents') {
+            dayEvents.forEach(ev => {
+              value += (value ? '\n' : '') + '📅 ' + ev.summary;
+            });
           }
           const cell = document.createElement('div');
           cell.className = `editable-cell ${person}`;
@@ -733,40 +777,104 @@
       document.body.classList.toggle('show-school-meals');
     });
 
-    renderPlanner();
+    // --- Shift week data if needed (run once on page load) ---
+    function shiftWeekDataIfNeeded() {
+      const now = new Date();
+      const currentWeekKey = startOfWeek(now).toISOString().split("T")[0];
+      const lastSeenWeek = localStorage.getItem('planner-last-seen-week');
+      if (lastSeenWeek === currentWeekKey) return;
+
+      localStorage.setItem('planner-last-seen-week', currentWeekKey);
+
+      const keys = Object.keys(localStorage);
+      const entryPattern = /^planner-week_(\-?\d+)-day_(\d+)-person_(\w+)$/;
+
+      const shiftedEntries = {};
+
+      keys.forEach(key => {
+        const match = key.match(entryPattern);
+        if (match) {
+          const [, weekStr, dayStr, person] = match;
+          const week = parseInt(weekStr);
+          const newWeek = week - 1;
+          const newKey = `planner-week_${newWeek}-day_${dayStr}-person_${person}`;
+          shiftedEntries[newKey] = localStorage.getItem(key);
+        }
+      });
+
+      keys.forEach(key => {
+        if (entryPattern.test(key)) {
+          localStorage.removeItem(key);
+        }
+      });
+
+      Object.entries(shiftedEntries).forEach(([key, value]) => {
+        localStorage.setItem(key, value);
+      });
+    }
+
+    shiftWeekDataIfNeeded();
+    fetchICalEvents().then(renderPlanner);
 
     // --- Home Assistant Todo Integration ---
     const haToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjY2YzNDVhYTdlMjY0YTY5ODc1NTNjZjhmNmJhMjliZCIsImlhdCI6MTc0NzQ2MzA4OSwiZXhwIjoyMDYyODIzMDg5fQ.di1R-9EQ-BDuMO8SaAB0sPavzBDDidhynVNw2ot431E';
     const haUrl = 'https://q5cf0t1qt8bqriz9gzvwkzcccu8ha6sj.ui.nabu.casa'; // update if needed
 
-    async function fetchTodoList() {
+    async function fetchTodoList(callback) {
       const response = await fetch(`${haUrl}/api/todo`, {
         headers: {
           'Authorization': `Bearer ${haToken}`,
           'Content-Type': 'application/json'
         }
       });
-      const todos = await response.json();
-      const forgetBox = document.getElementById('ha-todo');
-      if (Array.isArray(todos)) {
-        forgetBox.value = todos.map(item => `${item.completed ? '✅' : '📝'} ${item.summary}`).join('\n');
-      }
+      const data = await response.json();
+      console.log("Fetched /api/todo data:", data);
+      const shopping = data.find(list => list.entity_id === 'todo.shopping_list');
+      const todos = shopping?.items || [];
+      const list = document.getElementById('todo-list');
+      list.innerHTML = '';
+      todos.forEach(item => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <label>
+            <input type="checkbox" ${item.complete ? 'checked' : ''} data-name="${item.summary}">
+            <span>${item.summary}</span>
+          </label>
+        `;
+        list.appendChild(li);
+      });
+      if (callback) callback(todos);
     }
 
-    async function syncTodoToHA(text) {
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      const response = await fetch(`${haUrl}/api/todo`, {
+    // Removed syncTodoToHA and textarea event listener, replaced by form and checkbox listeners below.
+
+    // Add todo submit handler
+    document.getElementById('add-todo-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('new-todo');
+      const summary = input.value.trim();
+      if (!summary) return;
+      await fetch(`${haUrl}/api/services/todo/add_item`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${haToken}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+          entity_id: 'todo.shopping_list',
+          item: summary
+        })
       });
-      const existing = await response.json();
-      const existingTitles = new Set(existing.map(item => item.summary));
-      const newItems = lines.map(l => l.replace(/^✅|📝/, '').trim()).filter(title => !existingTitles.has(title));
+      input.value = '';
+      fetchTodoList();
+    });
 
-      for (const summary of newItems) {
-        await fetch(`${haUrl}/api/services/todo/add_item`, {
+    // Add change listener for checkbox toggle
+    document.getElementById('todo-list').addEventListener('change', async (e) => {
+      if (e.target.tagName === 'INPUT' && e.target.type === 'checkbox') {
+        const name = e.target.dataset.name;
+        const complete = e.target.checked;
+        await fetch(`${haUrl}/api/services/todo/update_item`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${haToken}`,
@@ -774,21 +882,17 @@
           },
           body: JSON.stringify({
             entity_id: 'todo.shopping_list',
-            item: { summary }
+            item: { name, complete }
           })
         });
+        fetchTodoList();
       }
-    }
-
-    fetchTodoList();
-
-    let todoSyncTimeout;
-    document.getElementById('ha-todo').addEventListener('input', (e) => {
-      clearTimeout(todoSyncTimeout);
-      todoSyncTimeout = setTimeout(() => {
-        syncTodoToHA(e.target.value);
-      }, 1500);
     });
+
+    // fetchTodoList no longer copies shopping list into "Must Do's" textarea.
+
+    // Ensure the todo list is fetched and displayed on load
+    fetchTodoList();
   </script>
 </body>
 </html>
